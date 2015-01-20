@@ -13,3 +13,8 @@ module Accessor =
 
    let ReadEntity<'a when 'a : (new : unit -> 'a)> (query : string) (id : CustomerId)  =      
       new 'a()
+
+module Security =
+
+   let CanLoadCustomer (id : CustomerId) = 
+      true

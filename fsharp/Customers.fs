@@ -2,65 +2,40 @@
 
 type CustomerCache = Map<CustomerId, Customer>
  
-type DynamicCallContext = {
-      UserId : int
-      }
- 
-type CachedCallContext = {
+type CallContext = {
    UserId : int
    Cache : CustomerCache 
    }
-      
-type CallContext =
-   | Dynamic of DynamicCallContext
-   | Cached of CachedCallContext
- 
-type CustomerReader = CallContext * CustomerId -> (CallContext * Customer option)
- 
- 
+   
 module CustomerRepositoryServices =
+ 
+   type CustomerReader = CallContext * CustomerId -> (CallContext * Customer option)
  
    let DbCall (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
       let customer = Accessor.ReadEntity<Customer> "SELECT * FROM Customer WHERE Id = @0" id
- 
+
       (context, Some(customer))
  
+   let CacheCall (fallback : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
+      match (context.Cache.TryFind id) with
+      | Some found -> (context, Some(found))
+      | None ->  
+         match (fallback (context, id)) with
+         | (context, None) -> (context, None)
+         | (context, Some customer) ->
+            let updated = {context with Cache = context.Cache.Add (id, customer)}
+            (updated, Some(customer))
  
-   let CacheCall (reader : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
-      match context with
-      | Cached c -> 
-         let found = c.Cache.TryFind id
+   let SecureCall (fallback : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
+      if not (Security.CanLoadCustomer id) then
+         failwith "Access denied."
+
+      fallback (context, id)
  
-         if found.IsNone then
-            let (result, customer) = reader (context, id)
-         
-            if (customer.IsSome) then
-               let updated = {c with Cache = c.Cache.Add (id, customer.Value)}
- 
-               (Cached(updated), customer)
-            else
-               (context, found)
-         else      
-            (context, found)
-      | Dynamic d ->
-         let result = reader (context, id)
- 
-         result
- 
- 
-   let SecureCall (reader : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
-      let result = reader (context, id)
- 
-      result
- 
- 
-   let TraceCall (reader : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
+   let TraceCall (fallback : CustomerReader) (context : CallContext, id : CustomerId) : (CallContext * Customer option) =
       printf "Trace/in"
-   
-      let result = reader (context, id)
- 
+      let result = fallback (context, id)
       printf "Trace/out"
- 
       result
  
 module CustomerRepository =
@@ -69,5 +44,5 @@ module CustomerRepository =
  
    let LoadCustomer (context : CallContext) (id : CustomerId) : (CallContext * Customer option) =
       let result = (TraceCall << SecureCall << CacheCall) DbCall (context, id)
- 
+
       result
