@@ -1,10 +1,15 @@
-﻿module Shared
+﻿[<AutoOpen>]
+module Shared
 
-type Customer() =
-   member this.Id : int = 
-      0
+type CustomerId = 
+   | CustomerId of int
+ 
+type Customer() = 
+   member this.Id : CustomerId = 
+      CustomerId(1)
+   
 
 module Accessor =
 
-   let ReadEntity<'a when 'a : (new : unit -> 'a)> (query : string) (id : int)  =      
+   let ReadEntity<'a when 'a : (new : unit -> 'a)> (query : string) (id : CustomerId)  =      
       new 'a()

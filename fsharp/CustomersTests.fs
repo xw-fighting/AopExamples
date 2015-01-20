@@ -8,6 +8,7 @@ type CustomersTests() =
 
    [<TestMethod>]
    member this.TestA() =
-      let customer = CustomerRepository.LoadCustomer 1
-
-      Assert.IsNotNull(customer)
+      Assert.Fail()
+//      let customer = CustomerRepository.LoadCustomer 1
+//
+//      Assert.IsNotNull(customer)
